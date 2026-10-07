@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Bright Llama</title>
+<meta name="description" content="Bright Llama - split a project into real tasks, balance the workload and hand every contributor a step-by-step guide.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2305060F'/%3E%3Cpath d='M9 12h3l2.5 4L17 12h3l-3.6 5.6L20 23h-3l-2.4-3.9L12 23H9l3.6-5.4z' fill='%2300F0FF'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="/socket.io/socket.io.js"></script>
+<link rel="stylesheet" href="/app/tokens.css">
+<style>
+/* ---------- design tokens: every colour, radius, shadow and font lives here ---------- */
+:root{
+  --bg:#05060F; --surface:#0B0D1A; --surface-2:#11142A; --ln:rgba(255,255,255,.08);
+  --cyan:#00F0FF; --magenta:#FF2BD6; --lime:#B6FF3B; --amber:#FFB020; --red:#FF3B5C; --violet:#8B5CF6;
+  --ink:#EDEEFF; --mut:#9AA0C8; --idle:#4A5180;
+  --font:"Space Grotesk",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"Space Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  --r-card:16px; --r-ctl:10px; --r-pill:99px;
+  --glow:0 0 0 1px rgba(0,240,255,.28),0 8px 26px -10px rgba(0,240,255,.60);
+  --glass:linear-gradient(180deg,rgba(17,20,42,.86),rgba(11,13,26,.72));
+  /* names the existing rules already use, mapped to the palette above */
+  --ac:var(--cyan); --ok:var(--lime); --wait:var(--amber); --late:var(--red); --todo:var(--idle); --card:var(--glass);
+}
+*{box-sizing:border-box}
+body{margin:0;background:
+  radial-gradient(900px 480px at 12% -8%,rgba(0,240,255,.10),transparent 60%),
+  radial-gradient(760px 420px at 92% 0%,rgba(255,43,214,.09),transparent 62%),var(--bg);
+  color:var(--ink);font:16px/1.55 var(--font);font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased}
+#app{min-height:100vh}
+a{color:var(--cyan)}
+a:hover{color:#fff;text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--cyan)}
+button,.filebtn,a,input[type=checkbox],summary{cursor:pointer}
+header{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;padding:12px 20px;
+  border-bottom:1px solid var(--ln);position:sticky;top:0;z-index:40;background:rgba(5,6,15,.78);
+  backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
+header>b{letter-spacing:-.01em}
+.bellbtn{display:inline-flex;align-items:center;gap:4px;margin:0;padding:6px 10px}
+.badge{background:var(--late);color:var(--bg);border-radius:var(--r-pill);padding:0 7px;font:700 12px/1.7 var(--mono)}
+.drop{position:absolute;right:16px;top:100%;z-index:30;width:330px;max-width:92vw;background:var(--surface-2);
+  border:1px solid var(--ln);border-radius:var(--r-card);box-shadow:0 24px 60px -20px #000,0 0 0 1px rgba(0,240,255,.10);
+  padding:8px 12px;max-height:60vh;overflow:auto}
+.drop .nrow{padding:8px 2px;border-bottom:1px solid var(--ln)}
+.drop .nrow b{color:var(--cyan)}
+main{padding:20px;max-width:900px;margin:0 auto}
+.card{background:var(--glass);border:1px solid var(--ln);border-radius:var(--r-card);padding:16px;margin:12px 0;
+  backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);box-shadow:0 20px 44px -32px #000}
+.link{cursor:pointer;transition:border-color .18s,box-shadow .18s,transform .18s}
+.link:hover{border-color:rgba(0,240,255,.45);box-shadow:var(--glow);transform:translateY(-1px)}
+.muted,small{color:var(--mut)}
+small{font-family:var(--mono);font-size:12.5px;letter-spacing:.01em}
+code,.tag,.badge,header span b{font-family:var(--mono)}
+code{background:rgba(0,240,255,.08);border:1px solid rgba(0,240,255,.20);border-radius:6px;padding:1px 6px;color:var(--cyan);font-size:13px}
+input,select,textarea{width:100%;padding:10px 11px;margin:6px 0;border:1px solid var(--ln);border-radius:var(--r-ctl);
+  background:rgba(11,13,26,.72);color:var(--ink);font:inherit}
+input::placeholder,textarea::placeholder{color:#6C74A0}
+input:focus,select:focus,textarea:focus{border-color:rgba(0,240,255,.55);outline:none;box-shadow:0 0 0 3px rgba(0,240,255,.14)}
+option{background:var(--surface-2);color:var(--ink)}
+input:disabled{opacity:.55}
+input[type=checkbox]{width:19px;height:19px;accent-color:var(--cyan);vertical-align:-3px}
+button{background:var(--cyan);color:var(--bg);border:0;border-radius:var(--r-ctl);padding:9px 15px;margin:4px 4px 4px 0;
+  cursor:pointer;font:600 15px/1.3 var(--font);transition:box-shadow .18s,transform .18s,filter .18s}
+button:hover{filter:brightness(1.06);box-shadow:var(--glow)}
+button:active{transform:translateY(1px)}
+button.ghost{background:none;color:var(--cyan);border:1px solid rgba(0,240,255,.42)}
+button.ghost:hover{background:rgba(0,240,255,.08)}
+:focus-visible{outline:2px solid var(--cyan);outline-offset:2px;box-shadow:var(--glow)}
+.tabs{display:flex;gap:4px;overflow-x:auto;border-bottom:1px solid var(--ln);margin-bottom:4px}
+.tabs button{background:none;color:var(--mut);border-bottom:2px solid transparent;border-radius:0;margin:0;padding:10px 14px;white-space:nowrap;transition:color .18s,background-color .18s}
+.tabs button:hover{filter:none;box-shadow:none;color:var(--cyan);background:rgba(0,240,255,.06)}
+.tabs button.on{color:var(--cyan);border-color:var(--cyan);text-shadow:0 0 14px rgba(0,240,255,.55)}
+.row{display:flex;align-items:center;gap:12px;padding:7px 0;border-radius:var(--r-ctl);transition:background-color .18s}.row:hover{background:rgba(0,240,255,.05)}.who{width:130px;flex:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row>span:nth-child(2){flex:1;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.dot{width:16px;height:16px;border-radius:50%;display:inline-block;border:2px solid var(--todo)}
+.dot.submitted{background:var(--wait);border-color:var(--wait)}
+.dot.done{background:var(--ok);border-color:var(--ok);box-shadow:0 0 12px -3px rgba(182,255,59,.85)}
+.dot.overdue{background:var(--late);border-color:var(--late);box-shadow:0 0 12px -3px rgba(255,59,92,.85)}
+.wbar{flex:1;height:10px;border-radius:var(--r-pill);min-width:40px;
+  background:linear-gradient(90deg,var(--cyan),var(--violet));box-shadow:0 0 18px -5px rgba(0,240,255,.85)}
+.late{color:var(--red);font-weight:600}
+.duein{width:auto;margin:4px 8px 4px 0;padding:6px;font-size:14px}
+.top{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
+.tag{font:700 12px/1.7 var(--mono);text-transform:uppercase;letter-spacing:.06em;padding:2px 9px;border-radius:var(--r-pill);border:1px solid var(--todo);color:var(--mut)}
+.tag.submitted{border-color:var(--wait);color:var(--amber)}
+.tag.done{border-color:var(--ok);color:var(--lime)}
+details{margin:8px 0}
+summary{cursor:pointer;color:var(--cyan);font:600 14px/1.6 var(--font);padding:4px 0}
+summary:hover{text-shadow:0 0 12px rgba(0,240,255,.5)}
+pre{white-space:pre-wrap;font:inherit;margin:6px 0;color:var(--ink)}
+#msgs{height:340px;overflow:auto}
+#msgs p{margin:5px 0;padding:7px 10px;border-radius:var(--r-ctl);background:rgba(17,20,42,.55);border:1px solid var(--ln)}
+#msgs p b{color:var(--cyan)}
+.flex{display:flex;gap:8px}
+.cmts{max-height:220px;overflow:auto}.cmts p{margin:5px 0}
+.filebtn{display:inline-block;background:var(--cyan);color:var(--bg);border:0;border-radius:var(--r-ctl);padding:9px 15px;
+  margin:4px 4px 4px 0;cursor:pointer;font:600 15px/1.3 var(--font)}
+.filebtn:hover{filter:brightness(1.06);box-shadow:var(--glow)}
+button:disabled,.filebtn:disabled{opacity:.55;cursor:progress}
+header>*{min-width:0}header b{overflow-wrap:anywhere}
+#toasts{position:fixed;right:14px;bottom:14px;z-index:80;display:flex;flex-direction:column;gap:8px;max-width:min(340px,calc(100vw - 28px))}
+.toast{background:var(--surface-2);color:var(--ink);border:1px solid var(--ln);border-radius:var(--r-ctl);
+  box-shadow:0 18px 40px -18px #000;padding:11px 15px;border-left:4px solid var(--lime);font-size:15px}
+.toast.bad{border-left-color:var(--red)}
+.ask{display:inline-flex;gap:6px;align-items:center;flex-wrap:wrap;margin:4px 0}
+/* ---------- auth: full-screen glass sign-in card ---------- */
+.authwrap{position:relative;z-index:0;display:flex;flex-direction:column;min-height:100vh;min-height:100dvh;padding:26px 16px}
+.authwrap::before,.authwrap::after{content:"";position:fixed;width:56vmin;height:56vmin;border-radius:50%;filter:blur(80px);opacity:.5;z-index:-1;pointer-events:none}
+.authwrap::before{background:radial-gradient(circle,rgba(0,240,255,.55),transparent 65%);top:-14vmin;left:-12vmin;animation:authbl 16s ease-in-out infinite alternate}
+.authwrap::after{background:radial-gradient(circle,rgba(255,43,214,.5),transparent 65%);bottom:-16vmin;right:-12vmin;animation:authbr 18s ease-in-out infinite alternate}
+@keyframes authbl{to{transform:translate(10vmin,8vmin) scale(1.15)}}
+@keyframes authbr{to{transform:translate(-8vmin,-10vmin) scale(1.1)}}
+.authcard{margin:auto;width:min(430px,100%);padding:34px 30px 28px;border:1px solid rgba(255,255,255,.16);border-radius:22px;
+  background:linear-gradient(180deg,rgba(17,20,42,.72),rgba(11,13,26,.55));backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+  box-shadow:0 34px 80px -34px #000,0 0 0 1px rgba(0,240,255,.08),0 0 80px -46px rgba(0,240,255,.7);animation:authrise .6s cubic-bezier(.22,1,.36,1) both}
+@keyframes authrise{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+.authlogo{display:grid;place-items:center;width:56px;height:56px;margin:0 auto 14px;border-radius:16px;background:rgba(0,240,255,.10);
+  border:1px solid rgba(0,240,255,.35);box-shadow:0 0 26px -8px rgba(0,240,255,.55)}
+.authcard h2{margin:0;text-align:center;font-size:26px;letter-spacing:-.02em}
+.authtag{margin:6px 0 22px;text-align:center;color:var(--mut);font-size:14.5px}
+.abox{display:flex;align-items:center;gap:10px;margin:9px 0;padding:0 15px;border:1px solid var(--ln);border-radius:99px;
+  background:rgba(11,13,26,.72);transition:border-color .18s,box-shadow .18s}
+.abox:focus-within{border-color:rgba(0,240,255,.55);box-shadow:0 0 0 3px rgba(0,240,255,.14)}
+.abox>svg{flex:none;color:var(--mut);transition:color .18s}
+.abox:focus-within>svg{color:var(--cyan)}
+.abox input,.abox select{width:100%;margin:0;padding:13px 0;border:0;border-radius:0;background:none;box-shadow:none;color:var(--ink);font:inherit}
+.abox input::placeholder{color:#6C74A0}
+.abox input:focus,.abox select:focus{border:0;outline:none;box-shadow:none}
+.abox select{cursor:pointer;-webkit-appearance:none;appearance:none}
+.abox select option{background:var(--surface-2);color:var(--ink)}
+.abox .chev{flex:none;margin-left:2px;color:var(--mut);pointer-events:none}
+.authbtn{width:100%;margin:18px 0 0;padding:13px;border-radius:99px;font-size:15.5px}
+.authsw{margin:16px 0 0;text-align:center;font-size:14px;color:var(--mut)}
+.authsw a{font-weight:600}
+/* ---------- respect the OS "reduce motion" setting ---------- */
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;
+    transition-duration:.001ms!important;scroll-behavior:auto!important}
+  .link:hover{transform:none}
+}
+@media(max-width:480px){
+  main{padding:12px}header{padding:10px 12px;gap:8px}
+  .card{padding:13px}.who{width:88px}.row{gap:8px}.flex{flex-wrap:wrap}
+  input,select,textarea{font-size:16px}
+  .tabs button{padding:9px 8px;font-size:15px}.dot{width:14px;height:14px}
+  .drop{left:10px;right:10px;width:auto;max-width:none}#toasts{left:12px;right:12px;bottom:12px;max-width:none}
+  .filebtn{display:block;text-align:center;margin:4px 0}.top{flex-wrap:wrap}
+  #msgs{height:260px}button{padding:10px 13px}
+}
+@media(max-width:720px){main{padding:14px}button{min-height:44px}.who{width:90px}.drop{right:8px}}
+.card{animation:rise .35s ease both}@keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@media(prefers-reduced-motion:reduce){.card{animation:none}}
+</style></head><body><div id="app"></div>
+<script>
+const $=s=>document.querySelector(s),esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const today=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`};
+const MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const fmtDay=d=>{const p=String(d||'').split('-');return p.length===3?`${p[2]} ${MON[+p[1]-1]} ${p[0]}`:''};
+const cssv=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const isOverdue=t=>!!t.due&&t.due<today()&&t.status!=='done';
+let token=localStorage.t,me,pid,socket,chart,notes={items:[],unread:0},bellOpen=false,backTo=home;
+async function api(p,m='GET',b){const r=await fetch('/api'+p,{method:m,headers:{'content-type':'application/json',authorization:'Bearer '+token},body:b&&JSON.stringify(b)});const j=await r.json();if(!r.ok){flash(j.error,1);throw j}return j}
+// multipart upload (files) and authenticated download; both report problems with a toast
+async function send(fd,p,m='POST'){const r=await fetch('/api'+p,{method:m,headers:{authorization:'Bearer '+token},body:fd});const j=await r.json();if(!r.ok)flash(j.error||'Upload failed');return j}
+async function download(id,fid,name){const r=await fetch(`/api/tasks/${id}/files/${fid}`,{headers:{authorization:'Bearer '+token}});if(!r.ok)return flash('Download not allowed');
+const u=URL.createObjectURL(await r.blob()),a=document.createElement('a');a.href=u;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(u),5000)}
+
+// ---------- notifications: one socket for chat and live bells ----------
+const BELL='<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>';
+function sock(){if(!socket){socket=io({auth:{token}});socket.on('connect',()=>{socket.pid&&socket.emit('join',socket.pid)});socket.on('notify',n=>{loadNotes();flash(n.text)})}return socket}
+const ago=t=>{const s=(Date.now()-t)/1000;return s<60?'just now':s<3600?Math.floor(s/60)+' min ago':s<86400?Math.floor(s/3600)+' h ago':Math.floor(s/86400)+' d ago'};
+async function loadNotes(){try{notes=await api('/notifications')}catch{}bell()}
+function bell(){
+const w=$('#bellWrap');if(!w)return;
+w.innerHTML=`<button id=bn class="ghost bellbtn" title="Notifications" aria-label="Notifications">${BELL}${notes.unread?`<span class=badge>${notes.unread}</span>`:''}</button>
+<div class=drop ${bellOpen?'':'hidden'}>${notes.items.length?notes.items.map(n=>`<div class=nrow>${esc(n.text)}<div><small>${ago(n.ts)}${n.read?'':' · new'}</small></div></div>`).join(''):'<p class=muted>Nothing new.</p>'}<div><small class=muted>${bellOpen?'Everything is marked as read.':'Click the bell to mark everything as read.'}</small></div></div>`;
+ $('#bn').onclick=async()=>{bellOpen=!bellOpen;if(bellOpen&&notes.unread){await busy($('#bn'),async()=>{await api('/notifications/read','POST');await loadNotes()},'…')}else bell()}}
+// ---------- tiny toast, inline confirm and button busy states ----------
+function flash(text,bad){const w=$('#toasts')||document.body.appendChild(Object.assign(document.createElement('div'),{id:'toasts'}));
+ const d=document.createElement('div');d.className='toast'+(bad?' bad':'');d.textContent=text;w.appendChild(d);
+ setTimeout(()=>{d.style.opacity=0;d.style.transition='opacity .3s';setTimeout(()=>d.remove(),300)},4000)}
+const busy=async(b,fn,wait='Working…')=>{if(!b||b.disabled)return;const was=b.textContent;b.disabled=true;b.textContent=wait;
+ try{return await fn()}catch(e){/* api() already showed the toast, so this must not become an unhandled rejection */}finally{b.disabled=false;b.textContent=was}};
+const ask=(b,msg,fn)=>{const w=document.createElement('span');w.className='ask';
+ w.innerHTML=`<small class=muted>${esc(msg)}</small> <button>Yes</button> <button class=ghost>No</button>`;b.replaceWith(w);
+ const[y,n]=w.querySelectorAll('button');y.onclick=async()=>{await busy(y,fn,wait);w.replaceWith(b)};n.onclick=()=>w.replaceWith(b)};
+
+function authView(mode='login'){const su=mode==='signup';
+const ic=p=>`<svg width=18 height=18 viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width=2 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`;
+const U=ic('<path d="M20 21a8 8 0 0 0-16 0"/><circle cx=12 cy=7 r=4/>'),M=ic('<rect x=2 y=4 width=20 height=16 rx=2/><path d="m22 7-10 6L2 7"/>'),L=ic('<rect x=3 y=11 width=18 height=11 rx=2/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>'),B=ic('<path d="M12 2l2.4 4.9 5.4.8-3.9 3.8.9 5.4L12 14.4l-4.8 2.5.9-5.4L4.2 7.7l5.4-.8z"/>');
+$('#app').innerHTML=`<div class="authwrap"><div class="authcard">
+<div class="authlogo"><svg width=30 height=30 viewBox="0 0 32 32" aria-hidden="true"><rect width=32 height=32 rx=9 fill="#05060F"/><path d="M9 12h3l2.5 4L17 12h3l-3.6 5.6L20 23h-3l-2.4-3.9L12 23H9l3.6-5.4z" fill="#00F0FF"/></svg></div>
+<h2>${su?'Create account':'Welcome back'}</h2><p class="authtag">${su?'Join Bright Llama and start shipping with your team.':'Sign in to Bright Llama to continue.'}</p>
+${su?`<div class="abox">${U}<input id=n placeholder="Full name" autocomplete=name></div>
+<div class="abox"><select id=r aria-label="Role"><option value=contributor>I'm a contributor</option><option value=manager>I'm a project manager</option></select><svg class="chev" width=16 height=16 viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width=2 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></div>
+<div class="abox">${B}<input id=sk placeholder="Skills, e.g. React, design, writing"></div>`:''}
+<div class="abox">${M}<input id=e type=email placeholder="Email" autocomplete=email></div>
+<div class="abox">${L}<input id=p type=password placeholder="Password" autocomplete="${su?'new-password':'current-password'}"></div>
+<button id=go class=authbtn>${su?'Create account':'Log in'}</button>
+<p class="authsw"><a href=# id=sw>${su?'I already have an account':'Create an account'}</a></p></div></div>`;
+$('#sw').onclick=e=>{e.preventDefault();authView(su?'login':'signup')};
+$('#go').onclick=()=>busy($('#go'),async()=>{const b={email:$('#e').value,password:$('#p').value};if(su)Object.assign(b,{name:$('#n').value,role:$('#r').value,skills:$('#sk').value});
+ const j=await api(su?'/signup':'/login','POST',b);token=j.token;localStorage.t=token;home()},su?'Creating…':'Logging in…')}
+
+async function home(){const d=await api('/me');me=d.user;const M=me.role==='manager';
+$('#app').innerHTML=`<header><b>Bright Llama</b><span>${esc(me.name)} · ID <b>${me.uid}</b> · ${me.role}</span><span class=flex><button id=pf class=ghost>Profile</button><span id=bellWrap></span><button id=lo class=ghost>Log out</button></span></header><main>
+${M?`<div class=card><h3>New project</h3><input id=t placeholder="Project title"><input id=th placeholder="Theme, e.g. Food delivery app"><textarea id=d rows=3 placeholder="What exactly are we building?"></textarea><button id=cp>Create project</button></div>`:`<p class=muted>Give your ID <b>${me.uid}</b> to your manager so they can add you to a team.</p>`}
+<h3>${M?'Your projects':'Your teams'}</h3>${d.projects.map(p=>`<div class="card link" data-id=${p.id}><b>${esc(p.title)}</b><div class=muted>${esc(p.theme)}${p.team?' · Team: '+esc(p.team.replaceAll(',',', ')):''}</div></div>`).join('')||'<p class=muted>Nothing here yet.</p>'}</main>`;
+$('#lo').onclick=()=>{localStorage.removeItem('t');token=null;authView()};
+$('#pf').onclick=()=>{backTo=home;profile()};
+document.querySelectorAll('.link').forEach(c=>c.onclick=()=>{pid=c.dataset.id;proj()});
+sock();loadNotes();
+ if(M)$('#cp').onclick=async()=>busy($('#cp'),async()=>{await api('/projects','POST',{title:$('#t').value,theme:$('#th').value,description:$('#d').value});home()})}
+
+async function profile(){
+const d=await api('/me');me={...me,...d.user};
+$('#app').innerHTML=`<header><button id=bk class=ghost>Back</button><b>Profile</b><span id=bellWrap></span></header><main>
+<div class=card><h3>Your ID</h3><code id=uid>${esc(me.uid)}</code> <button id=cid class=ghost>Copy ID</button> <small class=muted id=cidout>${me.role==='contributor'?'Give this to your project manager.':'Your team manager ID.'}</small></div>
+<div class=card><h3>Your details</h3><input id=pn placeholder="Full name" maxlength=60 value="${esc(me.name)}">
+<input id=ps placeholder="Skills, e.g. React, design, writing" maxlength=200 value="${esc(me.skills)}">
+<textarea id=pe rows=5 maxlength=1000 placeholder="Experience, e.g. 3 years backend, led a team of 4, shipped two apps">${esc(me.experience)}</textarea>
+<small class=muted>${(me.experience||'').length}/1000 characters used</small><br><button id=sv>Save profile</button></div></main>`;
+$('#bk').onclick=()=>backTo();sock();loadNotes();
+$('#cid').onclick=async()=>{try{await navigator.clipboard.writeText(me.uid);$('#cidout').textContent='Copied '+me.uid}
+catch{const r=document.createRange();r.selectNodeContents($('#uid'));const g=getSelection();g.removeAllRanges();g.addRange(r);$('#cidout').textContent='Selected, press copy'}};
+$('#sv').onclick=()=>busy($('#sv'),async()=>{const j=await api('/me','PATCH',{name:$('#pn').value,skills:$('#ps').value,experience:$('#pe').value});me={...me,...j.user};flash('Profile saved');backTo()})}
+
+async function proj(tab='tasks'){const d=await api('/projects/'+pid),p=d.project,M=d.isManager,T=d.tasks;
+const by=u=>T.filter(t=>t.uid===u),pct=a=>a.length?Math.round(a.filter(t=>t.status==='done').length/a.length*100):0;
+const rows=d.members.filter(m=>M||m.uid===me.uid);
+const lateCount=a=>a.filter(isOverdue).length;
+const blocked=t=>!!t.depends_on&&!!t.dep_status&&t.dep_status!=='done';
+// workload per member: open tasks (not approved), their hours, and who is above 1.5x the average
+const loadOf=m=>{const ts=T.filter(t=>t.uid===m.uid&&t.status!=='done');return{n:ts.length,h:Math.round(ts.reduce((a,t)=>a+(Number(t.hours)||0),0))}};
+const wl=d.members.map(m=>({m,...loadOf(m)})),avgN=wl.length?wl.reduce((a,x)=>a+x.n,0)/wl.length:0,maxH=Math.max(1,...wl.map(x=>x.h));
+const wlCard=`<div class=card><h3>Workload</h3>${wl.map(x=>`<div class=row><span class=who>${esc(x.m.name)}</span><span><i class=wbar style="width:${Math.round(x.h/maxH*100)}%;${x.n>avgN*1.5?'background:var(--late)':''}"></i><small class="${x.n>avgN*1.5?'late':''}">${x.n} open · ${x.h}h</small></span></div>`).join('')||'<p class=muted>No members yet.</p>'}<small>Bar = open hours · <span class=late>red</span> = more than 1.5x the team average (${avgN.toFixed(1)} tasks)</small><br><button id=reb>Rebalance</button></div>`;
+const waits=t=>t.waits_for?`<div class=muted>Waits for: <b>${esc(t.waits_for)}</b>${blocked(t)?' <span class=late>(not finished yet)</span>':''}</div>`:'';
+const dots=rows.map(m=>{const ts=by(m.uid);return `<div class=row><span class=who>${esc(m.name)}</span><span>${ts.map(t=>`<i class="dot ${t.status} ${isOverdue(t)?'overdue':''}" title="${esc(t.title)} (${t.status})${t.due?' · due '+esc(fmtDay(t.due)):''}"></i>`).join('')||'<small>No tasks yet</small>'}</span><small>${pct(ts)}%${lateCount(ts)?` · <span class=late>${lateCount(ts)} overdue</span>`:''}</small></div>`}).join('');
+const list=T.map(t=>`<div class="card"><div class=top><b>${esc(t.title)}</b><span class="tag ${t.status}">${t.status==='done'?'approved':t.status}</span></div><div class=muted>${esc(t.assignee)} · ${t.priority} priority · ${t.hours}h · ${t.due?`<span class="${isOverdue(t)?'late':''}">${isOverdue(t)?'overdue, due ':'due '}${esc(fmtDay(t.due))}</span>`:'no due date'}</div>${waits(t)}
+<details><summary>How to do it</summary><pre>${esc(t.guide)}</pre><b>Alternative way</b><pre>${esc(t.alt)}</pre></details>
+<details data-dis=${t.id}><summary>Discuss</summary><div id=c${t.id} class=cmts><small class=muted>Open to load the conversation.</small></div><input data-ci=${t.id} placeholder="Write a comment"><button data-cs=${t.id}>Send</button></details>
+${t.files&&t.files.length?`<div class=muted>Proof: ${t.files.map(f=>`<button class=ghost data-dl="${t.id}/${f.id}" data-nm="${esc(f.name)}">${esc(f.name)} · ${Math.max(1,Math.round(f.size/1024))} kB</button>`).join(' ')}</div>`:''}
+<label class=filebtn>Attach proof<input type=file hidden data-up=${t.id} accept=".png,.jpg,.jpeg,.pdf,.zip,.txt"></label>
+${M?`<select data-as=${t.id}>${d.members.map(m=>`<option value=${m.uid} ${m.uid===t.uid?'selected':''}>${esc(m.name)}</option>`).join('')}</select><input type=date class=duein data-due=${t.id} value="${esc(t.due||'')}" title="Due date"><small class=muted>Due date</small>${t.status==='submitted'?`<button data-t=${t.id} data-s=done>Approve</button><button class=ghost data-t=${t.id} data-s=todo>Send back</button>`:''}<button class=ghost data-del=${t.id}>Delete</button>
+<details><summary>Edit task</summary><div id=ed${t.id}><input data-ed=title value="${esc(t.title)}" placeholder="Title"><textarea data-ed=guide rows=4 placeholder="How to do it">${esc(t.guide)}</textarea><textarea data-ed=alt rows=2 placeholder="Alternative way">${esc(t.alt)}</textarea><div class=flex><select data-ed=priority>${['high','medium','low'].map(x=>`<option ${x===t.priority?'selected':''}>${x}</option>`).join('')}</select><input type=number data-ed=hours min=0.5 step=0.5 max=100 value="${esc(t.hours)}"></div><button data-sv=${t.id}>Save changes</button></div></details>`
+:t.status!=='done'?`<label><input type=checkbox data-ck=${t.id} ${t.status==='submitted'?'checked':''} ${blocked(t)?'disabled':''}> Mark as done (sent for review)${blocked(t)?' — locked until the task above is approved':''}</label>`:''}</div>`).join('');
+const body={
+tasks:`${M?`<div class=card><b>Add a task by hand</b><div class=flex><input id=mt placeholder="Task title"><select id=mp><option>medium</option><option>high</option><option>low</option></select><input id=mh type=number min=0.5 step=0.5 value=2 style="width:90px;flex:none"></div><select id=ma>${d.members.map(m=>`<option value=${m.uid}>${esc(m.name)}</option>`).join('')}</select><button id=madd>Add task</button></div>
+<div class=flex><input id=ins placeholder="Instructions (optional), e.g. make it 8 tasks, focus on design first"><button id=gen>Generate tasks with AI</button></div>${T.length&&!p.published?'<button id=pub>Publish to team</button> <small>Draft: only you can see these</small>':''}`:''}
+<div class=card>${dots||'<p class=muted>No members yet.</p>'}<small>Empty ring = to do · amber = waiting for review · green = approved · <i class="dot overdue"></i> red = past due date (${lateCount(T)})</small></div>${M?wlCard:''}${list||(M?'':'<p class=muted>Your tasks will appear once the manager publishes the plan.</p>')}`,
+team:`${M?`<div class=card><input id=q placeholder="Search contributors by name or ID (e.g. CON-12345)"><div id=res></div></div>`:''}
+${d.members.map(m=>`<div class=card><b>${esc(m.name)}</b> <code>${m.uid}</code><div class=muted>${esc(m.skills)}</div>${m.experience?`<div class=muted>${esc(m.experience)}</div>`:''}${M?`<button class=ghost data-rm=${m.uid}>Remove and replan tasks</button>`:''}</div>`).join('')}`,
+chat:`<div class=card id=msgs></div><form id=send class=flex><input id=mi placeholder="Message your team" autocomplete=off><button>Send</button></form>`,
+progress:`<div class=card><h3>${M?'Team':'Your'} progress: ${pct(T)}%</h3><div class=muted>${T.filter(t=>t.status==='done').length} approved · ${T.filter(t=>t.status==='submitted').length} waiting · <span class="${lateCount(T)?'late':''}">${lateCount(T)} overdue</span></div><canvas id=cv height=120></canvas></div>`}[tab];
+$('#app').innerHTML=`<header><button id=bk class=ghost>Back</button><b>${esc(p.title)}</b><span class=muted>${esc(p.theme)}</span><span class=flex><button id=pf class=ghost>Profile</button><span id=bellWrap></span></span></header><main>
+<div class=tabs>${['tasks','team','chat','progress'].map(t=>`<button class="${t===tab?'on':''}" data-tab=${t}>${t}</button>`).join('')}</div>${body}</main>`;
+$('#bk').onclick=home;$('#pf').onclick=()=>{backTo=()=>proj(tab);profile()};document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>proj(b.dataset.tab));
+sock();loadNotes();
+ const set=async(b,body)=>{await busy(b,async()=>{await api('/tasks/'+b.dataset.t,'PATCH',body);proj(tab)})};
+ document.querySelectorAll('[data-s]').forEach(b=>b.onclick=()=>set(b,{status:b.dataset.s}));
+ document.querySelectorAll('[data-as]').forEach(s=>s.onchange=()=>busy(s,async()=>{await api('/tasks/'+s.dataset.as,'PATCH',{assignee_uid:s.value});proj(tab)}));
+ document.querySelectorAll('[data-due]').forEach(i=>i.onchange=()=>busy(i,async()=>{await api('/tasks/'+i.dataset.due,'PATCH',{due:i.value||null});proj(tab)}));
+ document.querySelectorAll('[data-ck]').forEach(c=>c.onchange=()=>busy(c,async()=>{await api('/tasks/'+c.dataset.ck,'PATCH',{status:c.checked?'submitted':'todo'});proj(tab)}));
+ document.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>ask(b,'Delete this task?',async()=>{await api('/tasks/'+b.dataset.del,'DELETE');proj(tab)}));
+const cbox=async id=>{const c=$('#c'+id);if(!c||c.dataset.done)return;const list=await api(`/tasks/${id}/comments`);c.dataset.done=1;c.innerHTML=list.map(m=>`<p><b>${esc(m.name)}</b> ${esc(m.text)}<br><small>${new Date(m.ts).toLocaleString()}</small></p>`).join('')||'<small class=muted>No comments yet.</small>'};
+document.querySelectorAll('[data-dis]').forEach(d=>d.addEventListener('toggle',()=>d.open&&cbox(d.dataset.dis)));
+ document.querySelectorAll('[data-cs]').forEach(b=>b.onclick=()=>busy(b,async()=>{const id=b.dataset.cs,i=$('#ci'+id);if(!i.value.trim())return flash('Write something first');
+ await api(`/tasks/${id}/comments`,'POST',{text:i.value});i.value='';$('#c'+id).dataset.done=0;cbox(id)}));
+ document.querySelectorAll('[data-dl]').forEach(b=>b.onclick=()=>{const[t,f]=b.dataset.dl.split('/');busy(b,()=>download(t,f,b.dataset.nm),'…')});
+ document.querySelectorAll('[data-up]').forEach(i=>i.onchange=()=>busy(i,async()=>{if(!i.files[0])return;const l=i.closest('.filebtn');l.style.opacity=.55;
+ const fd=new FormData();fd.append('file',i.files[0]);const j=await send(fd,`/tasks/${i.dataset.up}/files`);l.style.opacity='';
+ if(j&&j.id)flash('Attached '+j.name);proj(tab)},'Uploading…'));
+ document.querySelectorAll('[data-sv]').forEach(b=>b.onclick=()=>busy(b,async()=>{const id=b.dataset.sv,w=$('#ed'+id),g=k=>w.querySelector(`[data-ed=${k}]`).value;
+ await api('/tasks/'+id,'PATCH',{title:g('title'),guide:g('guide'),alt:g('alt'),priority:g('priority'),hours:g('hours')});proj(tab)},'Saving…'));
+ document.querySelectorAll('[data-rm]').forEach(b=>b.onclick=()=>ask(b,'Remove this member and reassign their unfinished tasks?',async()=>{const r=await api(`/projects/${pid}/replan`,'POST',{uid:b.dataset.rm});flash(r.moved+' task(s) reassigned');proj('team')}));
+ if($('#gen'))$('#gen').onclick=()=>busy($('#gen'),async()=>{const j=await api(`/projects/${pid}/generate`,'POST',{instructions:$('#ins').value});
+  if(j.source==='demo')flash('The AI plan could not be used, so demo tasks were created');proj()},'Thinking…');
+ if($('#madd'))$('#madd').onclick=()=>busy($('#madd'),async()=>{await api(`/projects/${pid}/tasks`,'POST',{title:$('#mt').value,priority:$('#mp').value,hours:$('#mh').value,assignee_uid:$('#ma').value});proj()},'Adding…');
+ if($('#pub'))$('#pub').onclick=()=>busy($('#pub'),async()=>{await api(`/projects/${pid}/publish`,'POST');proj()},'Publishing…');
+ if($('#reb'))$('#reb').onclick=()=>busy($('#reb'),async()=>{const r=await api(`/projects/${pid}/rebalance`,'POST');flash(r.moved?`${r.moved} task(s) moved to the least loaded members`:'Workload is already even');proj(tab)},'Rebalancing…');
+if($('#q'))$('#q').oninput=async e=>{const r=await api('/users/search?q='+encodeURIComponent(e.target.value));$('#res').innerHTML=r.map(u=>`<div class=row><span>${esc(u.name)} <code>${u.uid}</code> <small>${esc(u.skills)}</small></span><button data-add=${u.uid}>Add</button></div>`).join('');
+document.querySelectorAll('[data-add]').forEach(b=>b.onclick=()=>busy(b,async()=>{await api(`/projects/${pid}/members`,'POST',{uid:b.dataset.add});proj('team')},'Adding…'))};
+if(tab==='progress'){chart?.destroy();const c=(s,m)=>by(m.uid).filter(t=>t.status===s).length;
+chart=new Chart($('#cv'),{type:'bar',data:{labels:rows.map(m=>m.name),datasets:[['done',cssv('--ok')],['submitted',cssv('--wait')],['todo',cssv('--idle')]].map(([s,col])=>({label:s,data:rows.map(m=>c(s,m)),backgroundColor:col}))},options:{scales:{x:{stacked:true},y:{stacked:true,ticks:{stepSize:1}}}}})}
+if(tab==='chat'){const box=$('#msgs'),add=m=>{box.insertAdjacentHTML('beforeend',`<p><b>${esc(m.name)}</b> ${esc(m.text)}</p>`);box.scrollTop=1e9};
+(await api(`/projects/${pid}/messages`)).forEach(add);const s=sock();s.pid=pid;s.emit('join',pid);s.on('msg',add);
+$('#send').onsubmit=e=>{e.preventDefault();const i=$('#mi');if(i.value.trim())sock().emit('msg',i.value);i.value=''}}}
+token?home().catch(()=>authView()):authView();
+</script></body></html>

@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Bright Llama — Create an account</title>
+
+  <!-- Inter font (allowed by CSP: fonts.googleapis.com / fonts.gstatic.com) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+  <!-- React (UMD) + Babel standalone from cdnjs — both already in the CSP script-src -->
+  <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
+  <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.10/babel.min.js"></script>
+
+  <!-- Tailwind Play CDN (add https://cdn.tailwindcss.com to CSP script-src) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    /* Project-specific tokens from the design spec */
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            page:   '#05060F', /* muted grayish-purple background */
+            card:   '#0B0D1A', /* large dark card                */
+            field:  '#11142A', /* input background               */
+            brand:  '#8B5CF6', /* primary purple button          */
+            brandDark: '#7444E8',
+            panelTop: '#8B5CF6', /* image panel gradient top    */
+            panelBot: '#05060F'  /* image panel gradient bottom */
+          },
+          fontFamily: { sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'] }
+        }
+      }
+    };
+  </script>
+
+  <link rel="stylesheet" href="/app/tokens.css">
+  <style>
+    /* Placeholders stay gray; the rest of the styling lives in Tailwind classes */
+    ::placeholder { color: #9CA3AF; opacity: 1; }
+  </style>
+</head>
+
+<body class="min-h-screen bg-page font-sans antialiased">
+  <div id="root"></div>
+
+  <!-- Single component, no external UI library. Babel compiles this JSX in the browser. -->
+  <script type="text/babel" data-presets="react">
+    const { useState } = React;
+
+    /* Shared input styling: borderless pill-friendly field, 1px light border on focus */
+    const FIELD =
+      "w-full h-[52px] rounded-lg bg-field px-4 text-white text-[15px] " +
+      "border border-transparent outline-none transition-colors duration-150 " +
+      "focus:border-[#C4B8F5] placeholder:text-gray-400";
+
+    /* --- small inline SVG icons (no icon library) --- */
+    const EyeIcon = ({ open }) => (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        {open
+          ? <><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></>
+          : <><path d="M3 3l18 18M10.6 5.1A10.9 10.9 0 0 1 12 5c6.5 0 10 7 10 7a18.4 18.4 0 0 1-3.4 4.3M6.6 6.6A18.4 18.4 0 0 0 2 12s3.5 7 10 7a10.7 10.7 0 0 0 4.3-.9"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></>}
+      </svg>
+    );
+
+    const GoogleIcon = () => (
+      <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true">
+        <path fill="#FFC107" d="M43.6 20.1H42V20H24v8h11.3C33.7 32.7 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.3 6.1 29.4 4 24 4 13 4 4 13 4 24s9 20 20 20 20-9 20-20c0-1.3-.1-2.6-.4-3.9Z"/>
+        <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.3 6.1 29.4 4 24 4c-7.7 0-14.4 4.4-17.7 10.7Z"/>
+        <path fill="#4CAF50" d="M24 44c5.2 0 10-2 13.6-5.2l-6.3-5.3C29.2 34.9 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44Z"/>
+        <path fill="#1976D2" d="M43.6 20.1H42V20H24v8h11.3c-.8 2.3-2.3 4.3-4.1 5.6l6.3 5.3C36.9 40.2 44 35 44 24c0-1.3-.1-2.6-.4-3.9Z"/>
+      </svg>
+    );
+
+    const AppleIcon = () => (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+        <path d="M16.7 12.9c0-2.4 2-3.6 2.1-3.7-1.1-1.7-2.9-1.9-3.5-1.9-1.5-.2-2.9.9-3.6.9-.8 0-1.9-.9-3.1-.8-1.6 0-3.1 1-3.9 2.4-1.7 2.9-.4 7.3 1.2 9.7.8 1.2 1.8 2.5 3 2.4 1.2 0 1.7-.8 3.1-.8 1.5 0 1.9.8 3.1.8 1.3 0 2.1-1.2 2.9-2.4.9-1.4 1.3-2.7 1.3-2.8-.1 0-2.6-1-2.6-3.8ZM14.4 5.6c.7-.8 1.1-1.9 1-3-1 0-2.1.7-2.8 1.5-.6.7-1.2 1.9-1 2.9 1.1.1 2.2-.6 2.8-1.4Z"/>
+      </svg>
+    );
+
+    /* ---------------- the sign-up page ---------------- */
+    function Signup() {
+      /* form data lives in one useState object */
+      const [form, setForm] = useState({
+        first: "", last: "", email: "", password: "", agree: false
+      });
+      const [showPw, setShowPw] = useState(false);   /* eye toggle      */
+      const [errors, setErrors] = useState({});       /* field errors    */
+      const [done, setDone] = useState(false);        /* submit feedback */
+
+      const set = (k) => (e) => {
+        const value = e.target.type === "checkbox" ? e.target.checked : e.target.value;
+        setForm((f) => ({ ...f, [k]: value }));
+        setErrors((err) => ({ ...err, [k]: undefined })); /* clear the error while typing */
+      };
+
+      /* Basic validation: required fields, valid email, password min 8 chars */
+      const validate = (v) => {
+        const e = {};
+        if (!v.first.trim()) e.first = "First name is required";
+        if (!v.last.trim())  e.last  = "Last name is required";
+        if (!v.email.trim())           e.email = "Email is required";
+        else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.email)) e.email = "Enter a valid email address";
+        if (!v.password)                e.password = "Password is required";
+        else if (v.password.length < 8) e.password = "Password must be at least 8 characters";
+        return e;
+      };
+
+      const onSubmit = (e) => {
+        e.preventDefault();
+        const errs = validate(form);
+        setErrors(errs);
+        if (Object.keys(errs).length) return;
+        console.log("Create account:", form); /* spec: log the submitted data */
+        setDone(true);
+      };
+
+      /* small red message under a field */
+      const Err = ({ name }) =>
+        errors[name] ? <p className="mt-1.5 text-[13px] text-red-300">{errors[name]}</p> : null;
+
+      return (
+        <div className="min-h-screen flex items-center justify-center p-4 sm:p-6">
+
+          {/* ===== card: two equal halves on ≥768px ===== */}
+          <div className="w-full max-w-[1100px] rounded-2xl bg-card shadow-[0_28px_70px_-20px_rgba(0,0,0,0.55)] p-4">
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+              {/* ---------- LEFT: image panel (hidden on mobile) ---------- */}
+              <div className="relative hidden md:flex flex-col justify-between overflow-hidden rounded-xl p-7"
+                   style={{ background: "linear-gradient(180deg,#5B4BA8 0%,#1E1633 100%)" }}>
+
+                {/* desert dunes artwork, layered over the gradient */}
+                <svg className="absolute inset-0 h-full w-full" viewBox="0 0 400 520"
+                     preserveAspectRatio="xMidYMax slice" aria-hidden="true">
+                  <defs>
+                    <linearGradient id="duneA" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0" stopColor="#463A7E"/><stop offset="1" stopColor="#2B2154"/>
+                    </linearGradient>
+                    <linearGradient id="duneB" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0" stopColor="#2A1F52"/><stop offset="1" stopColor="#191130"/>
+                    </linearGradient>
+                  </defs>
+                  {/* stars + moon */}
+                  <circle cx="70"  cy="60"  r="1.4" fill="#fff" opacity=".7"/>
+                  <circle cx="140" cy="110" r="1"   fill="#fff" opacity=".5"/>
+                  <circle cx="320" cy="70"  r="1.2" fill="#fff" opacity=".6"/>
+                  <circle cx="270" cy="40"  r="1"   fill="#fff" opacity=".45"/>
+                  <circle cx="318" cy="128" r="30"  fill="#E7DEFF" opacity=".9"/>
+                  <circle cx="308" cy="120" r="30"  fill="#5B4BA8" opacity=".95"/>
+                  {/* three dune ridges */}
+                  <path d="M0,318 C80,282 150,338 232,320 C304,304 352,332 400,312 L400,520 L0,520 Z" fill="url(#duneA)"/>
+                  <path d="M0,388 C86,352 168,412 258,390 C326,373 368,398 400,386 L400,520 L0,520 Z" fill="url(#duneB)"/>
+                  <path d="M0,452 C104,426 184,468 282,448 C340,436 376,454 400,446 L400,520 L0,520 Z" fill="#120C24"/>
+                </svg>
+
+                {/* logo, top-left */}
+                <div className="relative text-white text-xl font-semibold tracking-wide">AMU</div>
+
+                {/* back link, top-right */}
+                <a href="/"
+                   className="relative self-end rounded-full bg-white/15 px-4 py-2 text-sm text-white
+                              backdrop-blur-sm transition hover:bg-white/25">
+                  Back to website →
+                </a>
+
+                {/* headline + slider dashes, bottom center */}
+                <div className="relative text-center">
+                  <p className="text-white text-[30px] xl:text-[36px] font-light leading-tight">
+                    Capturing Moments,<br />Creating Memories
+                  </p>
+                  <div className="mt-5 flex items-center justify-center gap-2">
+                    <span className="h-1 w-6 rounded-full bg-gray-400"></span>
+                    <span className="h-1 w-6 rounded-full bg-gray-400"></span>
+                    <span className="h-1 w-10 rounded-full bg-white"></span>
+                  </div>
+                </div>
+              </div>
+
+              {/* ---------- RIGHT: form panel ---------- */}
+              <div className="flex flex-col justify-center px-4 py-8 sm:px-8 md:px-10">
+
+                <h1 className="text-white text-[32px] sm:text-[40px] font-medium leading-tight">
+                  Create an account
+                </h1>
+                <p className="mt-2 text-[15px] text-gray-400">
+                  Already have an account?{" "}
+                  <a href="/app" className="text-gray-300 underline underline-offset-2 hover:text-white">
+                    Log in
+                  </a>
+                </p>
+
+                <form onSubmit={onSubmit} noValidate className="mt-7 space-y-4">
+
+                  {/* row 1: first + last name */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <input className={FIELD} placeholder="First name"
+                             value={form.first} onChange={set("first")} />
+                      <Err name="first" />
+                    </div>
+                    <div>
+                      <input className={FIELD} placeholder="Last name"
+                             value={form.last} onChange={set("last")} />
+                      <Err name="last" />
+                    </div>
+                  </div>
+
+                  {/* row 2: email */}
+                  <div>
+                    <input className={FIELD} type="email" placeholder="Email"
+                           value={form.email} onChange={set("email")} />
+                    <Err name="email" />
+                  </div>
+
+                  {/* row 3: password with show/hide eye */}
+                  <div>
+                    <div className="relative">
+                      <input className={FIELD + " pr-12"} type={showPw ? "text" : "password"}
+                             placeholder="Enter your password"
+                             value={form.password} onChange={set("password")} />
+                      <button type="button" onClick={() => setShowPw((s) => !s)}
+                              aria-label={showPw ? "Hide password" : "Show password"}
+                              className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400
+                                         transition hover:text-white">
+                        <EyeIcon open={showPw} />
+                      </button>
+                    </div>
+                    <Err name="password" />
+                  </div>
+
+                  {/* terms checkbox — the submit button stays disabled until ticked */}
+                  <label className="flex items-start gap-3 pt-1 text-[15px] text-gray-300 cursor-pointer">
+                    <input type="checkbox" checked={form.agree} onChange={set("agree")}
+                           className="mt-0.5 h-5 w-5 shrink-0 accent-brand" />
+                    <span>
+                      I agree to the{" "}
+                      <span className="text-white underline underline-offset-2 cursor-pointer">
+                        Terms &amp; Conditions
+                      </span>
+                    </span>
+                  </label>
+
+                  {/* primary action */}
+                  <button type="submit" disabled={!form.agree}
+                          className="w-full h-[52px] rounded-lg bg-brand text-white text-[15px] font-medium
+                                     transition hover:bg-brandDark
+                                     disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-brand">
+                    Create account
+                  </button>
+
+                  {done && (
+                    <p className="text-center text-[14px] text-emerald-300">
+                      Account created — see the console for the submitted data.
+                    </p>
+                  )}
+
+                  {/* "Or register with" divider */}
+                  <div className="flex items-center gap-4 py-2">
+                    <span className="h-px flex-1 bg-white/15"></span>
+                    <span className="text-[13px] text-gray-400 whitespace-nowrap">Or register with</span>
+                    <span className="h-px flex-1 bg-white/15"></span>
+                  </div>
+
+                  {/* Google + Apple, outlined */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <button type="button"
+                            className="h-[52px] rounded-lg border border-white/25 bg-transparent text-white
+                                       text-[15px] flex items-center justify-center gap-2.5
+                                       transition hover:bg-white/5">
+                      <GoogleIcon /> Google
+                    </button>
+                    <button type="button"
+                            className="h-[52px] rounded-lg border border-white/25 bg-transparent text-white
+                                       text-[15px] flex items-center justify-center gap-2.5
+                                       transition hover:bg-white/5">
+                      <AppleIcon /> Apple
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<Signup />);
+  </script>
+</body>
+</html>
